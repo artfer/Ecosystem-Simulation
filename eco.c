@@ -78,6 +78,4 @@ int main(){
         printf("\n");
     }
 
-asdasdas
-
 }
