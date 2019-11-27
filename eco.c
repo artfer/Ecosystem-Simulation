@@ -9,6 +9,7 @@ typedef struct {
   int i;              // position i in the enviroment
   int j;              // position j in the enviroment
   int gen_food;       // generations passed without eating
+  int state;          // 0 -> Dead, 1 -> Alive
 } Object;
 
 
@@ -58,6 +59,8 @@ int main(){
 
     Object *objects = (Object *) malloc(N * sizeof(Object));
 
+    int ani_start;
+
     for(int i=0; i < N; i++){
 
         char tmp_type[10];
@@ -66,16 +69,59 @@ int main(){
 
         objects[i].type = str_to_num(tmp_type);
 
-        printf("%d %d %d\n", objects[i].type, objects[i].i, objects[i].j);
-
         matrix[objects[i].i][objects[i].j] = objects[i].type;
+
+        if(objects[i].type == 0)
+            ani_start = i;
 
     }
 
+    ani_start++;
+
+    /*
     for(int i = 0; i < R; i++){
         for(int j = 0; j < C; j++)
             printf("%c ", num_to_char(matrix[i][j]))    ;
         printf("\n");
     }
+
+    for(int i=0; i < N; i++)
+        printf("%d %d %d\n", objects[i].type, objects[i].i, objects[i].j);
+    */
+
+    int i,j;
+    int moves[N];
+
+    for(int gen=0; gen < N_GEN; gen++){
+        
+        for(int n = ani_start; n < N; n++){
+            
+            if (objects[n].state == 0)
+                continue;
+
+            i = objects[n].i;
+            j = objects[n].j;
+
+            if(matrix[i-1][j] == -1){
+                moves[n] = 0;
+                break;
+            } else if(matrix[i][j+1] == -1) {
+                moves[n] = 1;
+                break;
+            } else if(matrix[i+1][j] == -1){
+                moves[n] = 2;
+                break;
+            } else if(matrix[i][j-1] == -1){
+                moves[n] = 3;
+                break;
+            } else {
+                moves[n] = -1;
+                break;
+            }
+            
+        }
+
+    }
+
 
 }
