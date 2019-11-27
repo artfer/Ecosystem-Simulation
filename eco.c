@@ -54,9 +54,14 @@ char* num_to_str(int x){
         return "FOX";    
 }
 
-void print_mat(){
+void print_mat(int g){
+    printf("Generation %d\n",g);
     int tmp;
+    for (int c = 0; c < C+2; c++)
+        printf("-");
+    printf("\n");
     for(int i = 0; i < R; i++){
+        printf("|");
         for(int j = 0; j < C; j++){
             tmp = loc(matrix,i,j,C); 
             if(tmp == EMPTY)
@@ -68,8 +73,12 @@ void print_mat(){
             else
                 printf("R");
         }
-        printf("\n");
+        printf("|\n");
     }
+    for (int c = 0; c < C+2; c++)
+        printf("-");
+    printf("\n\n");
+    
 }
 
 
@@ -148,7 +157,7 @@ int main(){
     }
 
     
-    print_mat();
+    print_mat(0);
     
     /*
     for(int i=0; i < N; i++)
