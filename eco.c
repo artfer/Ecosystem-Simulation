@@ -4,6 +4,7 @@
 
 #define EMPTY -2147483648
 #define loc(mat,i,j,C) mat[ (i * C) + j ] 
+#define valid(i,j) i < 0 ? 0 : i > R ? 0 : j < 0 ? 0 : j > C ? 0 : 1   
 
 typedef struct {
     int id;             // id of object (rocks are all 0)
@@ -27,6 +28,8 @@ Object *foxes;
 Object *rabbits;
 int* matrix;
 int n_fox, n_rab;
+int size_fox, size_rab;
+int gen;
 
 int str_to_num(char str[]){
     if(!strcmp(str,"ROCK"))
@@ -81,7 +84,36 @@ void print_mat(int g){
     for (int c = 0; c < C+2; c++)
         printf("-");
     printf("\n\n");
-    
+}
+
+void new_object(int t, int i,int j){
+    if(t == 1){
+        if(n_rab == size_rab){
+            size_rab *= 2;
+            rabbits = (Object *) realloc(rabbits,size_rab * sizeof(Object));
+        }
+        rabbits[n_rab].id = n_rab + 1;
+        loc(matrix,i,j,C) = rabbits[n_rab].id;
+        rabbits[n_rab].i = i;
+        rabbits[n_rab].j = j;
+        rabbits[n_rab].gen_proc = 0;
+        rabbits[n_rab].state = 1;
+        n_rab++;
+    } else if (t == 2){
+        if(n_fox == size_fox){
+            size_fox *= 2;
+            foxes = (Object *) realloc(foxes,size_fox * sizeof(Object));
+        }
+        foxes[n_fox].id = (n_fox + 1) * -1;
+        loc(matrix,i,j,C) = foxes[n_fox].id;
+        foxes[n_fox].i = i;
+        foxes[n_fox].j = j;
+        foxes[n_fox].gen_proc = 0;
+        foxes[n_fox].gen_food = 0;
+        foxes[n_fox].state = 1;
+        n_fox++;
+    }
+
 }
 
 /*
@@ -139,49 +171,66 @@ void make_move(int n, int t){
 
     int i = cur.i;
     int j = cur.j;
+    int dest = -1;
     int dest_i = -1;
     int dest_j = -1;
+    int count = 0;
 
     //if fox, search for rabbit
     if(t == 2){
-        if(loc(matrix,i-1,j,C) > 0){
-            dest_i = i-1;
-            dest_j = j;
-        } else if(loc(matrix,i,j+1,C) > 0){
-            dest_i = i;
-            dest_j = j+1;
-        } else if(loc(matrix,i+1,j,C) > 0){
-            dest_i = i+1;
-            dest_j = j;
-        } else if(loc(matrix,i,j-1,C) > 0){
-            dest_i = i;
-            dest_j = j-1;
+        if(valid(i-1,j) && loc(matrix,i-1,j,C) > 0){
+            dest = 0;
+            count++; 
+        } 
+        if(valid(i,j+1) && loc(matrix,i,j+1,C) > 0){
+            dest = 1;
+            count++;
+        } 
+        if(valid(i+1,j) && loc(matrix,i+1,j,C) > 0){
+            dest = 2;    
+            count++;
+        }
+        if(valid(i,j-1) && loc(matrix,i,j-1,C) > 0){
+            dest = 3;
+            count++;
         }
     }
-    if(dest_i == -1){
-        if(loc(matrix,i-1,j,C) == EMPTY){
-            dest_i = i-1;
-            dest_j = j;
+    if(dest == -1){
+        if(valid(i-1,j) && loc(matrix,i-1,j,C) == EMPTY){
+            dest = 0;
+            count++;
         }
-        else if(loc(matrix,i,j+1,C) == EMPTY){
-            dest_i = i;
-            dest_j = j+1;
+        if(valid(i,j+1) && loc(matrix,i,j+1,C) == EMPTY){
+            dest = 1;
+            count++;
         }
-        else if(loc(matrix,i+1,j,C) == EMPTY){
-            dest_i = i+1;
-            dest_j = j;
+        if(valid(i+1,j) && loc(matrix,i+1,j,C) == EMPTY){
+            dest = 2;
+            count++;
         }
-        else if(loc(matrix,i,j-1,C) == EMPTY){
-            dest_i = i;
-            dest_j = j-1;
+        if(valid(i,j-1) && loc(matrix,i,j-1,C) == EMPTY){
+            dest = 3;
+            count++;
         }
-        else {
+        if(count == 0){
             cur.moved = 0;
             return;
         }
     }
 
-    
+    if(count > 1){
+        dest = (gen + i + j) % count;
+        printf("%d %d %d\n",i,j,dest);
+    }
+    /*
+    loc(matrix,i,j,C) = EMPTY;
+    loc(matrix,dest_i,dest_j,C) = cur.id;
+    cur.gen_proc++;
+    if(t == 1 && cur.gen_proc % GEN_PROC_RABBITS == 0){
+        
+    }*/
+
+
 
 }
 
@@ -207,6 +256,8 @@ int main(){
     rabbits = (Object *) malloc(N * sizeof(Object));
     n_fox = 0;
     n_rab = 0;
+    size_rab = N;
+    size_fox = N;
 
     for(int n=0; n < N; n++){
 
@@ -217,36 +268,21 @@ int main(){
 
         int tmp = str_to_num(tmp_type);
         
-
-        if(tmp != 0){
-            if(tmp == 1){
-                rabbits[n_rab].id = n_rab + 1;
-                loc(matrix,i,j,C) = rabbits[n_rab].id;
-                rabbits[n_rab].i = i;
-                rabbits[n_rab].j = j;
-                rabbits[n_rab].gen_proc = 0;
-                rabbits[n_rab].state = 1;
-                n_rab++;
-            } else if (tmp == 2){
-                foxes[n_fox].id = n_fox + 1;
-                loc(matrix,i,j,C) = foxes[n_fox].id * -1;
-                foxes[n_fox].i = i;
-                foxes[n_fox].j = j;
-                foxes[n_fox].gen_proc = 0;
-                foxes[n_fox].gen_food = 0;
-                foxes[n_fox].state = 1;
-                n_fox++;
-            }  
-        } else {
+        if(tmp != 0)
+            new_object(tmp, i,j);
+        else
             loc(matrix,i,j,C) = 0;
-        }
-        
 
     }
 
+    size_rab = n_rab;
+    size_fox = n_fox;
+
+    printf("Rabbits:%d   Foxes:%d\n\n",size_rab,size_fox);
+
     
     int i;
-    for(int gen = 0; gen < N_GEN; gen++){
+    for(gen = 0; gen < N_GEN; gen++){
 
         print_mat(gen);
         
