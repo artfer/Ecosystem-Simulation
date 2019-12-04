@@ -4,15 +4,15 @@
 
 #define EMPTY -2147483648
 #define loc(i,j) matrix[ (i * C) + j ] 
-#define valid(i,j) i < 0 ? 0 : i > R ? 0 : j < 0 ? 0 : j > C ? 0 : 1
+#define valid(i,j) i < 0 ? 0 : i >= R ? 0 : j < 0 ? 0 : j >= C ? 0 : 1
 #define North_f(i,j) valid(i-1,j) && loc(i-1,j) > 0
-#define East_f(i,j) valid(i,j+1) && loc(i,j+1) > 0
+#define East_f(i,j)  valid(i,j+1) && loc(i,j+1) > 0
 #define South_f(i,j) valid(i+1,j) && loc(i+1,j) > 0
-#define West_f(i,j) valid(i,j-1) && loc(i,j-1) > 0
-#define North(i,j) valid(i-1,j) && loc(i-1,j) == EMPTY
-#define East(i,j) valid(i,j+1) && loc(i,j+1) == EMPTY
-#define South(i,j) valid(i+1,j) && loc(i+1,j) == EMPTY
-#define West(i,j) valid(i,j-1) && loc(i,j-1) == EMPTY
+#define West_f(i,j)  valid(i,j-1) && loc(i,j-1) > 0
+#define North(i,j)   valid(i-1,j) && loc(i-1,j) == EMPTY
+#define East(i,j)    valid(i,j+1) && loc(i,j+1) == EMPTY
+#define South(i,j)   valid(i+1,j) && loc(i+1,j) == EMPTY
+#define West(i,j)    valid(i,j-1) && loc(i,j-1) == EMPTY
 #define Get_i(p,i) p == 0 ? i-1 : p == 2 ? i+1 : i
 #define Get_j(p,j) p == 1 ? j+1 : p == 3 ? j-1 : j  
 
@@ -23,7 +23,7 @@ typedef struct {
     int gen_food;       // generations passed without eating
     int gen_proc;       // generations passed without procreating
     int state;          // 0 -> Dead, 1 -> Alive
-    int moved;          // Moved this turn, 0 -> no, 1 -> yes  
+    int move;
 } Object;
 
 
@@ -62,12 +62,14 @@ char num_to_char(int x){
 }
 
 char* num_to_str(int x){
-    if(x == 0)
+    if(x == EMPTY)
+        return "";
+    else if(x < 0)
+        return "FOX";
+    else if(x == 0)
         return "ROCK";
-    else if (x == 1)
-        return "RABBIT";
-    else 
-        return "FOX";    
+    else
+        return "RABBIT";   
 }
 
 void print_mat(int g){
@@ -86,8 +88,26 @@ void print_mat(int g){
                 printf("F");
             else if(tmp == 0)
                 printf("*");
-            else
+            else if(tmp > 0)
                 printf("R");
+        }
+        printf("|\n");
+    }
+    for (int c = 0; c < C+2; c++)
+        printf("-");
+    printf("\n\n");
+}
+
+
+void print_real_mat(int g){
+    printf("Generation %d\n",g);
+    for (int c = 0; c < C+2; c++)
+        printf("-");
+    printf("\n");
+    for(int i = 0; i < R; i++){
+        printf("|");
+        for(int j = 0; j < C; j++){
+            printf("%d ",loc(i,j)); 
         }
         printf("|\n");
     }
@@ -126,103 +146,113 @@ void new_object(int t, int i,int j){
 
 }
 
-/*
-void prepare_move(int n){
-    if(objects[n].state == 0){
-        moves[n] = -1;
-        return;
-    }
 
-    int i = objects[n].i;
-    int j = objects[n].j;
-
-    //if fox, search for rabbit
-    if(objects[n].id < 0){
-        if(loc(matrix,i-1,j) > 0){
-            moves[n] = 0;
-            return;
-        } else if(loc(matrix,i,j+1) > 0){
-            moves[n] = 1;
-            return;
-        } else if(loc(matrix,i+1,j) > 0){
-            moves[n] = 2;
-            return;
-        } else if(loc(matrix,i,j-1) > 0){
-            moves[n] = 3;
-            return;
-        }
-    }
-
-    if(loc(matrix,i-1,j) == EMPTY)
-        moves[n] = 0;
-    else if(loc(matrix,i,j+1) == EMPTY)
-        moves[n] = 1;
-    else if(loc(matrix,i+1,j) == EMPTY)
-        moves[n] = 2;
-    else if(loc(matrix,i,j-1) == EMPTY)
-        moves[n] = 3;
-    else
-        moves[n] = -1;
-}
-*/
-
-
-void make_move(int n, int t, Object *cur){
-    
-    if(cur->state == 0){
-        return;
-    }
+void prepare_move(Object *cur){
 
     int move[4];
     int c = 0;
 
-    //if fox, search for rabbit
+    // if fox, search for rabbit
     if(cur->id < 0){
         if(North_f(cur->i,cur->j)){
              move[c] = 0; c++;
         } if(East_f(cur->i,cur->j)){
             move[c] = 1; c++;
         } if(South_f(cur->i,cur->j)){
-            move[c] = 2; c++;
+            move[c] = 2; c++; 
         } if(West_f(cur->i,cur->j)){
             move[c] = 3; c++;
         }
     }
     if(c == 0){
         if(North(cur->i,cur->j)){
-             move[c] = 0; c++;
+            move[c] = 0; c++;
         } if(East(cur->i,cur->j)){
             move[c] = 1; c++;
         } if(South(cur->i,cur->j)){
-            move[c] = 2; c++;
+            move[c] = 2; c++; 
         } if(West(cur->i,cur->j)){
             move[c] = 3; c++;
         }
         if(c == 0){
-            cur->moved = 0;
+            if(cur->id < 0 && cur->gen_food % GEN_FOOD_FOXES == 0)
+                cur->state = 0;
+            cur->move = -1;
             return;
         }
-    }
+    } 
 
-    if(c == 1){
-        loc(cur->i,cur->j) = EMPTY;
-        cur->i = Get_i(move[0],cur->i);
-        cur->j = Get_j(move[0],cur->j);
-        loc(cur->i, cur->j) = cur->id;
-    }
-    /*
-    loc(matrix,i,j) = EMPTY;
-    loc(matrix,dest_i,dest_j) = cur.id;
-    cur.gen_proc++;
-    if(t == 1 && cur.gen_proc % GEN_PROC_RABBITS == 0){
-        
-    }*/
-
-
+    if(c == 1)
+        cur->move = move[0];
+    else
+        cur->move = move[(gen + cur->i + cur->j) % c ]; 
+    printf("i:%d j:%d  going to %d\n",cur->i,cur->j,cur->move);
+    if(valid(cur->i-1,cur->j))
+        printf("0 -> %d\n",loc(cur->i-1,cur->j));
+    if(valid(cur->i,cur->j+1))
+        printf("1 -> %d\n",loc(cur->i,cur->j+1));
+    if(valid(cur->i+1,cur->j))
+        printf("2 -> %d\n",loc(cur->i+1,cur->j));
+    if(valid(cur->i,cur->j-1))
+        printf("3 -> %d\n",loc(cur->i,cur->j-1));
+    printf("\n");
+    
 
 }
 
+void make_move(Object *cur){
+    
+    int tmp = loc(Get_i(cur->move,cur->i), Get_j(cur->move,cur->j));  
+    int eats = 0;
 
+    // its a rabbit and it isnt going anywhere
+    if( tmp > 0 && rabbits[tmp].move == -1){
+        // the elderly have priority
+        if(rabbits[tmp].gen_proc >= cur->gen_proc){
+            cur->state = 0;
+            loc(cur->i,cur->j) = EMPTY;
+            return;
+        } else{
+            rabbits[tmp].state = 0;
+            eats++;
+        }
+    // its another fox
+    } else if(tmp != EMPTY && tmp < 0 && foxes[tmp*-1].move == -1){
+        // the elderly have priority
+        if(foxes[tmp*-1].gen_proc >= cur->gen_proc){
+                cur->state = 0;
+                loc(cur->i,cur->j) = EMPTY;
+                return;
+            } else
+                foxes[tmp*-1].state = 0;
+    }
+
+
+    // if the fox eats its safe, for now
+    if(cur->id < 0 && eats)
+        cur->gen_food = 0;    
+
+    // what to do in the current position
+    if(cur->id > 0 && cur->gen_proc % GEN_PROC_RABBITS){
+        new_object(1,cur->i,cur->j);
+    } else if(cur->id < 0 && cur->gen_proc % GEN_PROC_RABBITS){
+        new_object(2,cur->i,cur->j);
+    } else {
+        loc(cur->i, cur->j) = EMPTY;
+    }
+
+    // update location
+    cur->i = Get_i(cur->move,cur->i); 
+    cur->j = Get_j(cur->move, cur->j);
+    loc(cur->i, cur->j) = cur->id;
+    
+    // increment gens
+    cur->gen_proc++;
+    cur->gen_food++;
+    
+    // not moving anymore
+    cur->move = -1;
+}
 
 int main(){
 
@@ -234,7 +264,7 @@ int main(){
     scanf("%d",&C);
     scanf("%d",&N);
 
-    matrix = malloc( R * C * sizeof(int));
+    matrix = (int *)malloc( R * C * sizeof(int));
     for(int i = 0; i < R; i++)
         for(int j = 0; j < C; j++)
             loc(i,j) = EMPTY;
@@ -263,22 +293,33 @@ int main(){
 
     }
 
-    size_rab = n_rab;
-    size_fox = n_fox;
-
     printf("Rabbits:%d   Foxes:%d\n\n",size_rab,size_fox);
 
     
     int i;
-    for(gen = 0; gen < N_GEN; gen++){
+    for(gen = 0; gen < 1; gen++){
 
         print_mat(gen);
         
+        print_real_mat(gen);
+
         for(i = 0; i < n_rab; i++)
-            make_move(i, 1, &rabbits[i]);
+            if(rabbits[i].state == 1)
+                prepare_move(&rabbits[i]);
 
         for(i = 0; i < n_fox; i++)
-            make_move(i, 2, &foxes[i]);
+            if(foxes[i].state == 1)
+                prepare_move(&foxes[i]);
+
+        /*
+        for(i = 0; i < n_rab; i++)
+            if(rabbits[i].move != -1 || rabbits[i].state == 1)
+                make_move(&rabbits[i]);
+
+        for(i = 0; i < n_rab; i++)
+            if(foxes[i].move != -1 || foxes[i].state == 1)
+                make_move(&foxes[i]);
+        */
 
     }
 
