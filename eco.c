@@ -236,12 +236,20 @@ void prepare_move(Object *cur)
         }
     }
 
+    /*
+    for(int i=0;i<4;i++)
+        printf("%d ", move[i]);
+    printf("\n");
+    */
+
     if (c == 1)
         cur->move = move[0];
     else
         cur->move = move[(gen + cur->i + cur->j) % c];
-    print_around(cur);
-    printf("\n");
+
+    printf("%d %d %d\n",cur->i,cur->j,cur->move);
+    //print_around(cur);
+    //printf("\n");
 }
 
 void make_move(Object *cur)
@@ -265,7 +273,7 @@ void make_move(Object *cur)
     }
     else if (tmp != EMPTY && tmp < 0 && foxes[tmp * -1].move == -1){
         // the elderly have priority
-        if (foxes[tmp * -1].gen_proc >= cur->gen_proc){
+        if (foxes[(tmp*-1)].gen_proc >= cur->gen_proc){
             cur->state = 0;
             loc(cur->i, cur->j) = EMPTY;
             return;
@@ -327,7 +335,6 @@ int main()
     size_rab = N;
     size_fox = N;
 
-    print_real_mat(0);
     int i, j;
     for (int n = 0; n < N; n++)
     {
@@ -344,8 +351,6 @@ int main()
             loc(i, j) = 0;
     }
 
-    print_mat(0);
-
 
     /*
     for(int i = 0; i < n_rab; i++)
@@ -361,8 +366,6 @@ int main()
     for(gen = 0; gen < N_GEN; gen++){
 
         print_mat(gen);
-        
-        print_real_mat(gen);
 
         for(i = 0; i < n_rab; i++)
             if(rabbits[i].state == 1)
@@ -372,7 +375,7 @@ int main()
             if(foxes[i].state == 1)
                 prepare_move(&foxes[i]);
 
-        /*
+        
         for(i = 0; i < n_rab; i++)
             if(rabbits[i].move != -1 || rabbits[i].state == 1)
                 make_move(&rabbits[i]);
@@ -380,10 +383,12 @@ int main()
         for(i = 0; i < n_rab; i++)
             if(foxes[i].move != -1 || foxes[i].state == 1)
                 make_move(&foxes[i]);
-        */
+        
     }
 
+    /*
     free(rabbits);
     free(foxes);
     free(matrix);
+    */
 }
