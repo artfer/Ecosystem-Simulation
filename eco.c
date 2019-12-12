@@ -145,8 +145,7 @@ void print_around(Object *cur){
 void new_object(int t, int i, int j){
     if (t == 1)
     {   
-        if (n_rab == size_rab)
-        {
+        if (n_rab == size_rab){
             size_rab *= 2;
             rabbits = (Object *)realloc(rabbits, size_rab * sizeof(Object));
         }
@@ -160,8 +159,7 @@ void new_object(int t, int i, int j){
     }
     else if (t == 2)
     {
-        if (n_fox == size_fox)
-        {
+        if (n_fox == size_fox){
             size_fox *= 2;
             foxes = (Object *)realloc(foxes, size_fox * sizeof(Object));
         }
@@ -184,16 +182,18 @@ void update_matrix(){
         matrix[n] = matrix[n] == 0 ? 0 : EMPTY;
 
     for(n=0; n < n_rab; n++)
-        if(rabbits[n].state)
+        if(rabbits[n].state==1)
             loc(rabbits[n].i,rabbits[n].j) = rabbits[n].id;
         
 
     for(n=0; n < n_fox; n++)
-        if(foxes[n].state)
+        if(foxes[n].state==1)
             loc(foxes[n].i,foxes[n].j) = foxes[n].id;
 }
 
+
 void prepare_move(Object *cur){
+    
     int moves[4];
     int c = 0;
 
@@ -245,10 +245,8 @@ void prepare_move(Object *cur){
 }
 
 void move_rabbit(Object *cur){
-    
-    if(cur->move == -1)
-        return;
 
+    //printf("i:%d   j:%d   state:%d\n",cur->i,cur->j,cur->state);
     loc(cur->i,cur->j) = EMPTY;
 
     if(cur->gen_proc == GEN_PROC_RABBITS){
@@ -260,7 +258,7 @@ void move_rabbit(Object *cur){
     int tmp = loc(Get_i(cur->move,cur->i), Get_j(cur->move,cur->j));
 
     // another rabbit moved here
-    if(tmp != EMPTY){
+    if(tmp > 0){
         cur->state = 0;
         return;
     }
@@ -272,16 +270,33 @@ void move_rabbit(Object *cur){
     loc(cur->i,cur->j) = cur->id;
 }
 
+
 void move_fox(Object *cur){
 
-    if(cur->move == -1)
-        return;
-
     loc(cur->i,cur->j) = EMPTY;
-    
-    if(cur->gen_food == GEN_FOOD_FOXES){
-        cur->state = 0;
-        return;
+
+    int tmp = loc(Get_i(cur->move,cur->i), Get_j(cur->move,cur->j));
+
+    // a rabbit is here
+    if(tmp > 0){
+        cur->gen_food = 0;
+        rabbits[(tmp-1)].state = 0;
+    } else {
+        cur->gen_food++;
+        if(cur->gen_food == GEN_FOOD_FOXES){
+            cur->state = 0;
+            return;
+        }
+    }
+
+    // another fox is here
+    if(tmp != EMPTY && tmp < 0){
+        if(cur->gen_food >= foxes[((tmp * -1) -1) ].gen_food){
+            cur->state = 0;
+            return;
+        }
+        else
+            foxes[((tmp * -1) -1)].state = 0;
     }
 
     if(cur->gen_proc == GEN_PROC_FOXES){
@@ -290,27 +305,7 @@ void move_fox(Object *cur){
     } else
         cur->gen_proc++;
 
-    int tmp = loc(Get_i(cur->move,cur->i), Get_j(cur->move,cur->j));
 
-    // a rabbit is here
-    if(tmp > 0){
-        cur->gen_food = 0;
-        rabbits[tmp].state = 0;
-    } else
-        cur->gen_food++;
-    
-    // if another fox is here
-    if(tmp != EMPTY && tmp < 0){
-        if(cur->gen_food >= foxes[(tmp * -1)].gen_food){
-            cur->state = 0;
-            return;
-        }
-        else
-            foxes[(tmp * -1)].state = 0;
-        
-        return;
-    }
-    
     // update location
     cur->i = Get_i(cur->move, cur->i);
     cur->j = Get_j(cur->move, cur->j);
@@ -364,7 +359,7 @@ int main(){
 
     int cur_rab, cur_fox;
     
-    for(gen = 0; gen < N_GEN; gen++){
+    for(gen = 0; gen <= N_GEN; gen++){
 
         print_mat(gen);
 
@@ -373,20 +368,20 @@ int main(){
 
 
         for(i = 0; i < cur_rab; i++)
-            if(rabbits[i].state == 1)
+            if(rabbits[i].state)
                 prepare_move(&rabbits[i]);
 
         for(i = 0; i < cur_rab; i++)
-            if(rabbits[i].state == 1)
+            if(rabbits[i].state || rabbits[i].move == -1)
                 move_rabbit(&rabbits[i]);        
 
 
         for(i = 0; i < cur_fox; i++)
-            if(foxes[i].state == 1)
+            if(foxes[i].state)
                 prepare_move(&foxes[i]);
 
         for(i = 0; i < cur_fox; i++)
-            if(foxes[i].state == 1)
+            if(foxes[i].state || foxes[i].move == -1)
                 move_fox(&foxes[i]);
 
         update_matrix();
