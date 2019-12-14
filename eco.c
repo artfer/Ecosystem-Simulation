@@ -146,18 +146,17 @@ void new_object(int t, int i, int j){
 
     if (t == 1){
         if (n_rab == size_rab){
+            
             int n = 0;
             for(n = 0; n < n_rab; n++)
-                if (rabbits[n].state == 0)
-                    break;
-
-            if (n < n_rab-1){
-                loc(i,j) = rabbits[n].id;
-                rabbits[n].i = i;
-                rabbits[n].j = j;
-                rabbits[n].gen_proc = 0;
-                rabbits[n].state = 1;
-                return;
+                if (rabbits[n].state == 0){
+                    loc(i,j) = rabbits[n].id;
+                    rabbits[n].i = i;
+                    rabbits[n].j = j;
+                    rabbits[n].gen_proc = 0;
+                    rabbits[n].state = 1;
+                    rabbits[n].move = -2;
+                    return;
             }
 
             size_rab *= 2;
@@ -177,23 +176,21 @@ void new_object(int t, int i, int j){
 
             int n = 0;
             for(n = 0; n < n_fox; n++)
-                if (foxes[n].state == 0)
-                    break;
-
-            if (n < n_fox-1){
-                loc(i,j) = foxes[n].id;
-                foxes[n].i = i;
-                foxes[n].j = j;
-                foxes[n].gen_proc = 0;
-                foxes[n].gen_food = 0;
-                foxes[n].state = 1;
-                return;
-            }
+                if (foxes[n].state == 0){
+                    loc(i,j) = foxes[n].id;
+                    foxes[n].i = i;
+                    foxes[n].j = j;
+                    foxes[n].gen_proc = 0;
+                    foxes[n].gen_food = 0;
+                    foxes[n].state = 1;
+                    foxes[n].move = -2;
+                    return;
+                }
 
 
             size_fox *= 2;
-            printf("gen %d   after size_fox %d\n\n",gen,size_fox);
             foxes = (Object *)realloc(foxes, size_fox * sizeof(Object));
+            printf("gen %d   after size_fox %d\n\n",gen,size_fox);
         }
         foxes[n_fox].id = (n_fox + 1) * -1;
         loc(i,j) = foxes[n_fox].id;
@@ -278,6 +275,11 @@ void prepare_move(Object *cur){
 
 void move_rabbit(int i){
 
+    if(rabbits[i].move == -1){
+        rabbits[i].gen_proc++;
+        return;
+    }
+
     //printf("i:%d   j:%d   state:%d\n",cur->i,cur->j,cur->state);
     loc(rabbits[i].i,rabbits[i].j) = EMPTY;
 
@@ -305,7 +307,14 @@ void move_rabbit(int i){
 
 
 void move_fox(int i){
-    printf("id %d\n",foxes[i].id);
+    //printf("id %d\n",foxes[i].id);
+
+    if(foxes[i].move == -1){
+        foxes[i].gen_food++;
+        foxes[i].gen_proc++;
+        return;
+    }
+
     loc(foxes[i].i,foxes[i].j) = EMPTY;
 
     int tmp = loc(Get_i(foxes[i].move,foxes[i].i), 
@@ -323,22 +332,34 @@ void move_fox(int i){
         }
     }
 
-    // another fox is here
-    if(tmp != EMPTY && tmp < 0){
-        if(foxes[i].gen_food >= foxes[((tmp * -1) -1) ].gen_food){
-            foxes[i].state = 0;
-            return;
-        }
-        else
-            foxes[((tmp * -1) -1)].state = 0;
-    }
-
     if(foxes[i].gen_proc == GEN_PROC_FOXES){
         new_object(2,foxes[i].i,foxes[i].j);
         foxes[i].gen_proc = 0;
     } else
         foxes[i].gen_proc++;
 
+
+    // another fox is here
+    if(tmp != EMPTY && tmp < 0){
+        if(foxes[i].gen_proc < foxes[((tmp * -1) -1) ].gen_proc){
+            foxes[i].state = 0;
+            return;
+        }
+        else if (foxes[i].gen_proc > foxes[((tmp * -1) -1) ].gen_proc){
+            foxes[((tmp * -1) -1)].state = 0;
+        }
+        else if (foxes[i].gen_food < foxes[((tmp * -1) -1) ].gen_food){
+            foxes[((tmp * -1) -1)].state = 0;
+        }
+        else if (foxes[i].gen_food < foxes[((tmp * -1) -1) ].gen_food){
+            foxes[i].state = 0;
+            return;
+        }
+        else{
+            foxes[i].state = 0;
+            return;
+        }
+    }
 
     // update location
     foxes[i].i = Get_i(foxes[i].move, foxes[i].i);
@@ -366,12 +387,14 @@ int main(){
         for (int j = 0; j < C; j++)
             loc(i, j) = EMPTY;
 
-    foxes = (Object *)malloc(N * sizeof(Object));
-    rabbits = (Object *)malloc(N * sizeof(Object));
-    n_fox = 0;
-    n_rab = 0;
+
     size_rab = N;
     size_fox = N;
+    rabbits = (Object *)malloc(size_rab * sizeof(Object));
+    foxes = (Object *)malloc(size_fox * sizeof(Object));
+    n_fox = 0;
+    n_rab = 0;
+    
 
     int i, j;
     for (int n = 0; n < N; n++)
@@ -395,7 +418,8 @@ int main(){
     
     for(gen = 0; gen <= N_GEN; gen++){
 
-        //print_mat(gen);
+        print_mat(gen);
+        printf("gen %d\n",gen);
         cur_rab = n_rab;
         cur_fox = n_fox;
 
@@ -405,7 +429,7 @@ int main(){
                 prepare_move(&rabbits[i]);
 
         for(i = 0; i < cur_rab; i++)
-            if(rabbits[i].state || rabbits[i].move == -1)
+            if(rabbits[i].state || rabbits[i].move == -2)
                 move_rabbit(i);        
 
 
@@ -414,7 +438,7 @@ int main(){
                 prepare_move(&foxes[i]);
 
         for(i = 0; i < cur_fox; i++)
-            if(foxes[i].state || foxes[i].move == -1)
+            if(foxes[i].state || foxes[i].move == -2)
                 move_fox(i);
 
         update_matrix();
@@ -422,8 +446,8 @@ int main(){
     }
 
     /*
-    free(rabbits);
-    free(foxes);
-    free(matrix);
+    free(&rabbits);
+    free(&foxes);
+    free(&matrix);
     */
 }
