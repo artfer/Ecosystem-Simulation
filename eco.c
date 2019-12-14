@@ -433,24 +433,27 @@ int main(){
         cur_rab = n_rab;
         cur_fox = n_fox;
 
-        t1 = clock();
+        
 
         for(i = 0; i < cur_rab; i++)
             if(rabbits[i].state)
                 prepare_move(&rabbits[i]);
 
-        t1 = clock() - t1;
-        double ti= ((double)t1)/CLOCKS_PER_SEC;
-        printf("time %f\n",ti);
+        t1 = clock();
 
         for(i = 0; i < cur_rab; i++)
             if(rabbits[i].state || rabbits[i].move == -2)
                 move_rabbit(i);        
 
+        t1 = clock() - t1;
+        double ti= ((double)t1)/CLOCKS_PER_SEC;
+        printf("time %f\n",ti);
 
         for(i = 0; i < cur_fox; i++)
             if(foxes[i].state)
                 prepare_move(&foxes[i]);
+
+        
 
         for(i = 0; i < cur_fox; i++)
             if(foxes[i].state || foxes[i].move == -2)
