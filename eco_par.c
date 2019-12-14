@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h> 
+#include <omp.h>
 
+#define NTHREADS 2
 #define EMPTY -2147483648
 #define loc(i, j) (matrix[(i * C) + j])
 #define valid(i, j) (i < 0 ? 0 : i >= R ? 0 : j < 0 ? 0 : j >= C ? 0 : 1)
@@ -207,6 +208,7 @@ void new_object(int t, int i, int j){
 
 void update_matrix(){
     int n;
+    
 
     for(n=0; n < (R*C); n++)
         matrix[n] = matrix[n] == 0 ? 0 : EMPTY;
@@ -215,10 +217,12 @@ void update_matrix(){
         if(rabbits[n].state==1)
             loc(rabbits[n].i,rabbits[n].j) = rabbits[n].id;
         
-
     for(n=0; n < n_fox; n++)
         if(foxes[n].state==1)
             loc(foxes[n].i,foxes[n].j) = foxes[n].id;
+
+
+
 }
 
 
@@ -263,13 +267,12 @@ void prepare_move(Object *cur){
             moves[c] = 3; 
             c++;
         }
-        if (c == 0){
+        /*if (c == 0){
             cur->move = -1;
             return;
-        }
+        }*/
     }
-
-    cur->move = (c == 1) ? moves[0] : moves[(gen + cur->i + cur->j) % c]; 
+    cur->move = (c == 0) ? -1 : (c == 1) ? moves[0] : moves[(gen + cur->i + cur->j) % c]; 
 
     //printf("i:%d  j:%d  c:%d  move:%d\n",cur->i,cur->j,c,cur->move);
 }
@@ -295,7 +298,7 @@ void move_rabbit(int i){
 
     // another rabbit moved here
     if(tmp > 0){
-         if(rabbits[i].gen_proc <= rabbits[(tmp-1)].gen_proc){
+        if(rabbits[i].gen_proc <= rabbits[(tmp-1)].gen_proc){
             rabbits[i].state = 0;
             return;
         }
@@ -422,10 +425,9 @@ int main(){
 
     int cur_rab, cur_fox;
 
-    clock_t t,t1;
-    t = clock();  
+    double t = omp_get_wtime();
+    double t1;
 
-    
     for(gen = 0; gen <= N_GEN; gen++){
 
         //print_mat(gen);
@@ -433,21 +435,22 @@ int main(){
         cur_rab = n_rab;
         cur_fox = n_fox;
 
-        t1 = clock();
+        t1 = omp_get_wtime();
 
+        #pragma omp parallel for private(i) 
         for(i = 0; i < cur_rab; i++)
             if(rabbits[i].state)
                 prepare_move(&rabbits[i]);
 
-        t1 = clock() - t1;
-        double ti= ((double)t1)/CLOCKS_PER_SEC;
-        printf("time %f\n",ti);
+        t1 = omp_get_wtime() - t1;
+        printf("time %f\n", t1);
+
 
         for(i = 0; i < cur_rab; i++)
             if(rabbits[i].state || rabbits[i].move == -2)
                 move_rabbit(i);        
 
-
+        #pragma omp parallel for private(i)
         for(i = 0; i < cur_fox; i++)
             if(foxes[i].state)
                 prepare_move(&foxes[i]);
@@ -456,12 +459,14 @@ int main(){
             if(foxes[i].state || foxes[i].move == -2)
                 move_fox(i);
 
-        update_matrix();    
+        update_matrix();
+        
     }
 
-    t = clock() - t;
-    double time = ((double)t)/CLOCKS_PER_SEC;
-    printf("time %f\n",time);
+    t = omp_get_wtime() - t;
+
+    printf("time %f\n", t);
+
 
     free(rabbits);
     free(foxes);
