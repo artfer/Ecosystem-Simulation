@@ -42,7 +42,9 @@ int *matrix;
 int n_fox, n_rab;
 int size_fox, size_rab;
 int gen;
-omp_lock_t rab_lock,fox_lock,mat_lock;
+omp_lock_t rab_lock;
+omp_lock_t fox_lock;
+omp_lock_t *mat_lock;
 
 int str_to_num(char str[]){
     if (!strcmp(str, "ROCK"))
@@ -154,7 +156,9 @@ void new_object(int t, int i, int j){
             int n = 0;
             for(n = 0; n < n_rab; n++)
                 if (rabbits[n].state == 0){
+                    omp_set_lock(&mat_lock[j]);
                     loc(i,j) = rabbits[n].id;
+                    omp_unset_lock(&mat_lock[j]);
                     rabbits[n].i = i;
                     rabbits[n].j = j;
                     rabbits[n].gen_proc = 0;
@@ -162,13 +166,14 @@ void new_object(int t, int i, int j){
                     rabbits[n].move = -2;
                     return;
             }
-
             size_rab *= 2;
             rabbits = (Object *)realloc(rabbits, size_rab * sizeof(Object));
             //printf("gen %d   after size_rab %d\n\n",gen,size_rab);
         }
         rabbits[n_rab].id = n_rab + 1;
+        //omp_set_lock(&mat_lock[j]);
         loc(i,j) = rabbits[n_rab].id;
+        //omp_unset_lock(&mat_lock[j]);
         rabbits[n_rab].i = i;
         rabbits[n_rab].j = j;
         rabbits[n_rab].gen_proc = 0;
@@ -286,43 +291,46 @@ void move_rabbit(int i){
 
     if(rabbits[i].move == -1){
         rabbits[i].gen_proc++;
-        //return;
+        return;
     }
-    else{
 
-        //printf("i:%d   j:%d   state:%d\n",cur->i,cur->j,cur->state);
-        loc(rabbits[i].i,rabbits[i].j) = EMPTY;
+    //printf("i:%d   j:%d   state:%d\n",cur->i,cur->j,cur->state);
+    loc(rabbits[i].i,rabbits[i].j) = EMPTY;
 
-        if(rabbits[i].gen_proc == GEN_PROC_RABBITS){
-            rabbits[i].gen_proc = 0;
-            while(omp_test_lock(&rab_lock) == 0);
-            new_object(1,rabbits[i].i,rabbits[i].j);
-            omp_unset_lock(&rab_lock);
-            
-        } else 
-            rabbits[i].gen_proc++;
+    //printf("1\n");
+    if(rabbits[i].gen_proc == GEN_PROC_RABBITS){
+        rabbits[i].gen_proc = 0;
+        omp_set_lock(&rab_lock);
+        new_object(1,rabbits[i].i,rabbits[i].j);
+        omp_unset_lock(&rab_lock);
+        
+    } else 
+        rabbits[i].gen_proc++;
 
-        int tmp = loc(Get_i(rabbits[i].move,rabbits[i].i), 
-                    Get_j(rabbits[i].move,rabbits[i].j));
+    //printf("2\n");
+    int tmp = loc(Get_i(rabbits[i].move,rabbits[i].i), 
+                Get_j(rabbits[i].move,rabbits[i].j));
 
-        // another rabbit moved here
-        if(tmp > 0){
-            if(rabbits[i].gen_proc <= rabbits[(tmp-1)].gen_proc){
-                rabbits[i].state = 0;
-                //return;
-            }
-            else if (rabbits[i].gen_proc > rabbits[(tmp-1)].gen_proc){
-                rabbits[(tmp-1)].state = 0;
-                // update location
-                rabbits[i].i = Get_i(rabbits[i].move, rabbits[i].i);
-                rabbits[i].j = Get_j(rabbits[i].move, rabbits[i].j);
-
-                while(omp_test_lock(&mat_lock)==0);
-                loc(rabbits[i].i,rabbits[i].j) = rabbits[i].id;
-                omp_unset_lock(&mat_lock);
-            }
+    // another rabbit moved here
+    if(tmp > 0){
+        if(rabbits[i].gen_proc <= rabbits[(tmp-1)].gen_proc){
+            rabbits[i].state = 0;
+            //return;
+        }
+        else if (rabbits[i].gen_proc > rabbits[(tmp-1)].gen_proc){
+            rabbits[(tmp-1)].state = 0;
         }
     }
+
+
+    //printf("3\n");
+    // update location
+    rabbits[i].i = Get_i(rabbits[i].move, rabbits[i].i);
+    rabbits[i].j = Get_j(rabbits[i].move, rabbits[i].j);
+
+    omp_set_lock(&mat_lock[rabbits[i].j]);
+    loc(rabbits[i].i,rabbits[i].j) = rabbits[i].id;
+    omp_unset_lock(&mat_lock[rabbits[i].j]);
 }
 
 
@@ -435,10 +443,15 @@ int main(){
     //update_matrix();
 
     int cur_rab, cur_fox;
+    
+    mat_lock = (omp_lock_t *)malloc(C * sizeof(omp_lock_t));
+    for(i = 0; i < C; i++){
+        omp_init_lock(&mat_lock[i]);
+    }
 
     omp_init_lock(&rab_lock);
     omp_init_lock(&fox_lock);
-    omp_init_lock(&mat_lock);
+    
 
     //double t = omp_get_wtime();
     //double t1;
@@ -459,10 +472,10 @@ int main(){
         //t1 = omp_get_wtime();
         t1 = clock();
 
-        #pragma omp parallel for private(i) num_threads(2) schedule(dynamic ,10)
-        for(i = 0; i < cur_rab; i++)
-            if(rabbits[i].state || rabbits[i].move == -2)
-                move_rabbit(i);        
+        #pragma omp parallel for num_threads(2) 
+        for(int x = 0; x < cur_rab; x++)
+            if(rabbits[x].state || rabbits[x].move == -2)
+                move_rabbit(x);        
 
         //t1 = omp_get_wtime() - t1;
         //printf("time %f\n", t1);
