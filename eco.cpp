@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector> 
 #include <string>
+#include <time.h>
 
 using namespace std; 
 
@@ -18,6 +19,7 @@ using namespace std;
 #define Get_i(p, i) ((p == 0) ? (i - 1) : (p == 2) ? (i + 1) : i)
 #define Get_j(p, j) ((p == 1) ? (j + 1) : (p == 3) ? (j - 1) : j)
 
+
 typedef struct{
     int id;       // id of object
     int i;        // position i in the enviroment
@@ -28,22 +30,22 @@ typedef struct{
     int move;
 } Object;
 
-int GEN_PROC_RABBITS; // number of generations until a rabbit can procreate
-int GEN_PROC_FOXES;   // number of generations until a fox can procreate
-int GEN_FOOD_FOXES;   // number of generations for a fox to die of starvation
-int N_GEN;            // number of generations for the simulation
-int R;                // number of rows of the matrix representing the ecosystem
-int C;                // number of columns of the matrix representing the ecosystem
-int N;                // number of objects in the initial ecosystem
-vector<Object*> foxes;
-vector<Object*> rabbits;
-int r_ids, f_ids;
-int *matrix;
-int n_fox, n_rab;
-int size_fox, size_rab;
-int gen;
-vector<int> dead_r;
-vector<int> dead_f; 
+
+int GEN_PROC_RABBITS;    // number of generations until a rabbit can procreate
+int GEN_PROC_FOXES;      // number of generations until a fox can procreate
+int GEN_FOOD_FOXES;      // number of generations for a fox to die of starvation
+int N_GEN;               // number of generations for the simulation
+int R;                   // number of rows of the matrix representing the ecosystem
+int C;                   // number of columns of the matrix representing the ecosystem
+int N;                   // number of objects in the initial ecosystem
+vector<Object*> foxes;   // vector for rabbits
+vector<Object*> rabbits; // vector for rabbits
+vector<int> dead_r;      // positions of dead rabbits
+vector<int> dead_f;      // positions of dead foxes
+int r_ids, f_ids;        // ids for objects
+int *matrix;             // matrix to store values
+int gen;                 // number of current genaration
+
 
 int str_to_num(string str){
     if (str.compare("ROCK") == 0)
@@ -54,6 +56,8 @@ int str_to_num(string str){
         return 2;
 }
 
+
+// print a string matrix
 void print_mat(int g){
     cout << "Generation " << g << "\n";
     
@@ -85,6 +89,7 @@ void print_mat(int g){
     cout << "\n\n";
 }
 
+// print the number matrix
 void print_real_mat(int g){
     
     cout << "Generation " << g << "\n";
@@ -105,32 +110,26 @@ void print_real_mat(int g){
     cout << "\n\n";
 }
 
-void update(){
-    int i = 0;
-    for (auto it = rabbits.begin(); it != rabbits.end(); ){
-        cout << i;
-        if( (*it)->state == 0 )
-            it = rabbits.erase(it);
-        else {
-            rabbits.at(i)->id = i;
-            loc(rabbits.at(i)->i,rabbits.at(i)->j) = rabbits.at(i)->id;
-            ++i;
-            ++it;
-        }
-    }
 
-    i = 0;
-    for (auto it = foxes.begin(); it != foxes.end(); ){
-        if( (*it)->state == 0 )
-            it = foxes.erase(it);
-        else {
-            foxes.at(i)->id = (i*-1);
-            loc(foxes.at(i)->i,foxes.at(i)->j) = foxes.at(i)->id; 
-            ++i;
-            ++it;
-        }
-    }
+// print the final output
+void print_final(){
+    cout << GEN_PROC_RABBITS << " ";
+    cout << GEN_PROC_FOXES << " ";
+    cout << GEN_FOOD_FOXES << " ";
+    cout << N_GEN << " ";
+    cout << R << " ";
+    cout << C << " ";
+    cout << N << "\n";
 
+    for(int i = 0; i < R; i++)
+        for(int j = 0; j < C; j++){
+            if(loc(i,j) == 0)
+                printf("ROCK %d %d\n",i,j);
+            else if(loc(i,j) > 0)
+                printf("RABBIT %d %d\n",i,j);
+            else if(loc(i,j) != EMPTY)
+                printf("FOX %d %d\n",i,j);
+        }
 }
 
 
@@ -138,15 +137,17 @@ void new_object(int t, int i, int j){
 
     Object *tmp;
 
-    int re = 0;
-     if (t == 1){ 
-        if(dead_r.empty()){
+    int re = 0; // re-used position?
+    
+    if (t == 1){ // its a rabbit
+
+        if(dead_r.empty()){ // use new position
             loc(i,j) = r_ids;
             tmp = new Object();
             tmp->id = r_ids;
             r_ids++;
             rabbits.push_back(tmp);
-        } else {
+        } else { // re-use
             int idx = dead_r.back();
             dead_r.pop_back();
             tmp = rabbits.at(idx);
@@ -154,14 +155,15 @@ void new_object(int t, int i, int j){
             re = 1;
         }
     }
-    else if (t == 2){
-        if(dead_f.empty()){
+    else if (t == 2){ // its a fox
+
+        if(dead_f.empty()){ // use new position
             loc(i,j) = f_ids*-1;
             tmp = new Object();
             tmp->id = f_ids*-1;
             f_ids++;
             foxes.push_back(tmp);
-        } else {
+        } else { // re-use 
             int idx = dead_f.back();
             dead_f.pop_back();
             tmp = foxes.at(idx);
@@ -170,24 +172,21 @@ void new_object(int t, int i, int j){
         }
     }
 
-    
     tmp->i = i;
     tmp->j = j;
     tmp->gen_proc = 0;
     tmp->gen_food = 0;
-
-    tmp->move = re == 0 ? -1 : -2;
+    tmp->move = re == 0 ? -1 : -2; // to distinguish cant move from new borns
     tmp->state = 1;
-
    
 }
 
 void prepare_move(Object *cur){
     
-    int moves[4];
-    int c = 0;
+    int moves[4]; // 4 possible moves
+    int c = 0; // counter for number of available moves
 
-    // if fox, search for rabbit
+    // if fox, search for rabbit first
     if (cur->id < 0){
         if (North_f(cur->i, cur->j)){
             moves[c] = 0; 
@@ -228,34 +227,36 @@ void prepare_move(Object *cur){
             return;
         }
     }
-
     cur->move = (c == 1) ? moves[0] : moves[(gen + cur->i + cur->j) % c]; 
-
-    //printf("i:%d  j:%d  c:%d  move:%d\n",cur->i,cur->j,c,cur->move);
 }
+
 
 void move_rabbit(Object *cur){
 
+    // cant move
     if(cur->move == -1){
         cur->gen_proc++;
         return;
     }
 
-    //printf("i:%d   j:%d   state:%d\n",cur->i,cur->j,cur->state);
     loc(cur->i,cur->j) = EMPTY;
 
+    // check if its time to procreate
     if(cur->gen_proc == GEN_PROC_RABBITS){
         new_object(1,cur->i,cur->j);
         cur->gen_proc = 0;
     } else 
         cur->gen_proc++;
 
+    // whats in the next position?
     int tmp = loc(Get_i(cur->move,cur->i), 
                 Get_j(cur->move,cur->j));
 
-    // another rabbit moved here
+    // another rabbit moved there
     if(tmp > 0){
-         if(cur->gen_proc <= rabbits.at((tmp-1))->gen_proc){
+
+        // check who has higher proc_age and keep it
+        if(cur->gen_proc <= rabbits.at((tmp-1))->gen_proc){
             cur->state = 0;
             dead_r.push_back((cur->id-1));
             return;
@@ -269,13 +270,13 @@ void move_rabbit(Object *cur){
     // update location
     cur->i = Get_i(cur->move, cur->i);
     cur->j = Get_j(cur->move, cur->j);
-
     loc(cur->i,cur->j) = cur->id;
 }
 
-void move_fox(Object *cur){
-    //printf("id %d\n",foxes[i].id);
 
+void move_fox(Object *cur){
+
+    // cant move
     if(cur->move == -1){
         cur->gen_food++;
         cur->gen_proc++;
@@ -284,10 +285,11 @@ void move_fox(Object *cur){
 
     loc(cur->i,cur->j) = EMPTY;
 
+    // whats in the next position
     int tmp = loc(Get_i(cur->move,cur->i), 
                 Get_j(cur->move,cur->j));
 
-    // a rabbit is here
+    // if its a rabbit, eat it otherwise check if too hungry
     if(tmp > 0){
         cur->gen_food = 0;
         rabbits.at((tmp-1))->state = 0;
@@ -301,6 +303,7 @@ void move_fox(Object *cur){
         }
     }
 
+    // check if its time to procreate
     if(cur->gen_proc == GEN_PROC_FOXES){
         new_object(2,cur->i,cur->j);
         cur->gen_proc = 0;
@@ -308,8 +311,9 @@ void move_fox(Object *cur){
         cur->gen_proc++;
 
 
-    // another fox is here
+    // another fox is there, keep the one according to conflict res 
     if(tmp != EMPTY && tmp < 0){
+        
         if(cur->gen_proc < foxes.at(((tmp * -1) -1))->gen_proc){
             cur->state = 0;
             dead_f.push_back((cur->id * -1) -1);
@@ -338,7 +342,6 @@ void move_fox(Object *cur){
     // update location
     cur->i = Get_i(cur->move,cur->i);
     cur->j = Get_j(cur->move,cur->j);
-
     loc(cur->i,cur->j) = cur->id;
 }
 
@@ -353,25 +356,23 @@ int main(){
     cin >> C;
     cin >> N;
     
-
     matrix = (int *)malloc(R * C * sizeof(int));
 
+    //fill matrix with empty space
     for (int i = 0; i < R; i++)
         for (int j = 0; j < C; j++)
             loc(i, j) = EMPTY;
 
-    print_real_mat(0);
-
+    //ids for the objects
     r_ids = 1;
     f_ids = 1;
 
+    //read objects
     int i,j;
     for (int n = 0; n < N; n++){
         char tmp_type[10];
 
         scanf("%s %d %d", tmp_type, &i, &j);
-
-        cout << tmp_type << " " << i << " " << j << "\n";
 
         int tmp = str_to_num(tmp_type);
 
@@ -381,13 +382,15 @@ int main(){
             loc(i, j) = 0;
 
     }
- 
+    
+    //current number of objects
     int cur_rab, cur_fox;
 
-    for(gen = 0; gen <= N_GEN; gen++){
+    clock_t t = clock();
+
+    for(gen = 0; gen < N_GEN; gen++){
 
         //print_mat(gen);
-        cout << gen << "\n";
         cur_rab = rabbits.size();
         cur_fox = foxes.size();
 
@@ -408,7 +411,12 @@ int main(){
             if(foxes.at(i)->state && foxes.at(i)->move > -2)
                 move_fox(foxes.at(i));  
         
-        //update();
     }
+
+    t = clock() - t ;
+    printf("time %f\n",((float)t)/CLOCKS_PER_SEC);
+    //print_mat(gen);
+    //print_final();
+
     return 0;
 }
