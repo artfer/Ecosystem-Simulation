@@ -116,9 +116,17 @@ void print_final(){
     cout << GEN_PROC_RABBITS << " ";
     cout << GEN_PROC_FOXES << " ";
     cout << GEN_FOOD_FOXES << " ";
-    cout << N_GEN << " ";
+    cout << "0 ";
     cout << R << " ";
     cout << C << " ";
+
+    N = 0;
+
+    for(int i = 0; i < R; i++)
+        for(int j = 0; j < C; j++)
+            if(loc(i,j)!=EMPTY)
+                N++;
+
     cout << N << "\n";
 
     for(int i = 0; i < R; i++)
@@ -133,11 +141,9 @@ void print_final(){
 }
 
 
-void new_object(int t, int i, int j){
+void new_object(int t, int i, int j, int from_move){
 
     Object *tmp;
-
-    int re = 0; // re-used position?
     
     if (t == 1){ // its a rabbit
 
@@ -152,7 +158,6 @@ void new_object(int t, int i, int j){
             dead_r.pop_back();
             tmp = rabbits.at(idx);
             loc(i,j) = tmp->id;
-            re = 1;
         }
     }
     else if (t == 2){ // its a fox
@@ -168,7 +173,6 @@ void new_object(int t, int i, int j){
             dead_f.pop_back();
             tmp = foxes.at(idx);
             loc(i,j) = tmp->id;
-            re = 1;
         }
     }
 
@@ -176,7 +180,7 @@ void new_object(int t, int i, int j){
     tmp->j = j;
     tmp->gen_proc = 0;
     tmp->gen_food = 0;
-    tmp->move = re == 0 ? -1 : -2; // to distinguish cant move from new borns
+    tmp->move = (from_move == 0) ? -1 : -2; // to distinguish cant move from new borns
     tmp->state = 1;
    
 }
@@ -243,7 +247,7 @@ void move_rabbit(Object *cur){
 
     // check if its time to procreate
     if(cur->gen_proc == GEN_PROC_RABBITS){
-        new_object(1,cur->i,cur->j);
+        new_object(1,cur->i,cur->j, 1);
         cur->gen_proc = 0;
     } else 
         cur->gen_proc++;
@@ -305,7 +309,7 @@ void move_fox(Object *cur){
 
     // check if its time to procreate
     if(cur->gen_proc == GEN_PROC_FOXES){
-        new_object(2,cur->i,cur->j);
+        new_object(2,cur->i,cur->j, 1);
         cur->gen_proc = 0;
     } else
         cur->gen_proc++;
@@ -377,7 +381,7 @@ int main(){
         int tmp = str_to_num(tmp_type);
 
         if (tmp != 0)
-            new_object(tmp, i, j);
+            new_object(tmp, i, j, 0);
         else
             loc(i, j) = 0;
 
@@ -391,6 +395,8 @@ int main(){
     for(gen = 0; gen < N_GEN; gen++){
 
         //print_mat(gen);
+        //cout << gen << "\n";
+
         cur_rab = rabbits.size();
         cur_fox = foxes.size();
 
@@ -399,22 +405,23 @@ int main(){
                 prepare_move(rabbits.at(i));
         
         for(i = 0; i < cur_rab; i++)
-            if(rabbits.at(i)->state && rabbits.at(i)->move > -2 )
+            if(rabbits.at(i)->state && rabbits.at(i)->move > -2)
                 move_rabbit(rabbits.at(i));  
 
         for(i = 0; i < cur_fox; i++)
             if(foxes.at(i)->state)
                 prepare_move(foxes.at(i));
 
-        
         for(i = 0; i < cur_fox; i++)
             if(foxes.at(i)->state && foxes.at(i)->move > -2)
                 move_fox(foxes.at(i));  
         
     }
+    
+         
 
     t = clock() - t ;
-    printf("time %f\n",((float)t)/CLOCKS_PER_SEC);
+    printf("time %.3f\n",((float)t)/CLOCKS_PER_SEC);
     //print_mat(gen);
     //print_final();
 

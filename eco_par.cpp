@@ -2,12 +2,14 @@
 #include <vector> 
 #include <string>
 #include <time.h>
+#include <omp.h>
 
 using namespace std; 
 
 #define EMPTY -2147483648
 #define loc(i, j) (matrix[(i * C) + j])
-#define valid(i, j) (i < 0 ? 0 : i >= R ? 0 : j < 0 ? 0 : j >= C ? 0 : 1)
+#define lloc(i,j) ((i * C) + j)
+#define valid(i, j) ((i < 0) ? 0 : (i >= R) ? 0 : (j < 0) ? 0 : (j >= C) ? 0 : 1)
 #define North_f(i, j) (valid((i - 1), j) && (loc((i - 1), j) > 0))
 #define East_f(i, j) (valid(i, (j + 1)) && (loc(i, (j + 1)) > 0))
 #define South_f(i, j) (valid((i + 1), j) && (loc((i + 1), j) > 0))
@@ -18,6 +20,7 @@ using namespace std;
 #define West(i, j) (valid(i, (j - 1)) && (loc(i, (j - 1)) == EMPTY))
 #define Get_i(p, i) ((p == 0) ? (i - 1) : (p == 2) ? (i + 1) : i)
 #define Get_j(p, j) ((p == 1) ? (j + 1) : (p == 3) ? (j - 1) : j)
+#define NTHREADS 2
 
 
 typedef struct{
@@ -45,6 +48,11 @@ vector<int> dead_f;      // positions of dead foxes
 int r_ids, f_ids;        // ids for objects
 int *matrix;             // matrix to store values
 int gen;                 // number of current genaration
+omp_lock_t r_lock;
+omp_lock_t dr_lock;
+omp_lock_t *mat_lock;
+
+
 
 
 int str_to_num(string str){
@@ -116,9 +124,17 @@ void print_final(){
     cout << GEN_PROC_RABBITS << " ";
     cout << GEN_PROC_FOXES << " ";
     cout << GEN_FOOD_FOXES << " ";
-    cout << N_GEN << " ";
+    cout << "0 ";
     cout << R << " ";
     cout << C << " ";
+
+    N = 0;
+
+    for(int i = 0; i < R; i++)
+        for(int j = 0; j < C; j++)
+            if(loc(i,j)!=EMPTY)
+                N++;
+
     cout << N << "\n";
 
     for(int i = 0; i < R; i++)
@@ -133,11 +149,9 @@ void print_final(){
 }
 
 
-void new_object(int t, int i, int j){
+void new_object(int t, int i, int j, int from_move){
 
     Object *tmp;
-
-    int re = 0; // re-used position?
     
     if (t == 1){ // its a rabbit
 
@@ -147,20 +161,21 @@ void new_object(int t, int i, int j){
             tmp->id = r_ids;
             r_ids++;
             rabbits.push_back(tmp);
+
         } else { // re-use
             int idx = dead_r.back();
             dead_r.pop_back();
+            
             tmp = rabbits.at(idx);
             loc(i,j) = tmp->id;
-            re = 1;
         }
     }
     else if (t == 2){ // its a fox
 
         if(dead_f.empty()){ // use new position
-            loc(i,j) = f_ids*-1;
+            loc(i,j) = (f_ids*(-1));
             tmp = new Object();
-            tmp->id = f_ids*-1;
+            tmp->id = (f_ids*(-1));
             f_ids++;
             foxes.push_back(tmp);
         } else { // re-use 
@@ -168,7 +183,6 @@ void new_object(int t, int i, int j){
             dead_f.pop_back();
             tmp = foxes.at(idx);
             loc(i,j) = tmp->id;
-            re = 1;
         }
     }
 
@@ -176,7 +190,7 @@ void new_object(int t, int i, int j){
     tmp->j = j;
     tmp->gen_proc = 0;
     tmp->gen_food = 0;
-    tmp->move = re == 0 ? -1 : -2; // to distinguish cant move from new borns
+    tmp->move = (from_move == 0) ? -1 : -2; // to distinguish cant move from new borns
     tmp->state = 1;
    
 }
@@ -236,41 +250,47 @@ void move_rabbit(Object *cur){
     // cant move
     if(cur->move == -1){
         cur->gen_proc++;
-        return;
-    }
+        //return;
+    } else {
 
-    loc(cur->i,cur->j) = EMPTY;
+        loc(cur->i,cur->j) = EMPTY;
 
-    // check if its time to procreate
-    if(cur->gen_proc == GEN_PROC_RABBITS){
-        new_object(1,cur->i,cur->j);
-        cur->gen_proc = 0;
-    } else 
-        cur->gen_proc++;
+        // check if its time to procreate
+        if(cur->gen_proc == GEN_PROC_RABBITS){
+            new_object(1, cur->i, cur->j, 1);
+            cur->gen_proc = 0;
+        } else 
+            cur->gen_proc++;
 
-    // whats in the next position?
-    int tmp = loc(Get_i(cur->move,cur->i), 
-                Get_j(cur->move,cur->j));
+        // whats in the next position?
+        int tmp = loc(Get_i(cur->move,cur->i), 
+                    Get_j(cur->move,cur->j));
 
-    // another rabbit moved there
-    if(tmp > 0){
+        int dead = 0;
 
-        // check who has higher proc_age and keep it
-        if(cur->gen_proc <= rabbits.at((tmp-1))->gen_proc){
-            cur->state = 0;
-            dead_r.push_back((cur->id-1));
-            return;
+        // another rabbit moved there
+        if(tmp > 0){
+
+            // check who has higher proc_age and keep it
+            if(cur->gen_proc <= rabbits.at((tmp-1))->gen_proc){
+                cur->state = 0;
+                dead_r.push_back((cur->id-1));
+                //return;
+                dead = 1;
+            }
+            else {
+                rabbits.at((tmp-1))->state = 0;
+                dead_r.push_back((tmp-1));
+            }
         }
-        else {
-            rabbits.at((tmp-1))->state = 0;
-            dead_r.push_back((tmp-1));
+
+        if(!dead){
+            // update location
+            cur->i = Get_i(cur->move, cur->i);
+            cur->j = Get_j(cur->move, cur->j);
+            loc(cur->i,cur->j) = cur->id;
         }
     }
-
-    // update location
-    cur->i = Get_i(cur->move, cur->i);
-    cur->j = Get_j(cur->move, cur->j);
-    loc(cur->i,cur->j) = cur->id;
 }
 
 
@@ -305,7 +325,7 @@ void move_fox(Object *cur){
 
     // check if its time to procreate
     if(cur->gen_proc == GEN_PROC_FOXES){
-        new_object(2,cur->i,cur->j);
+        new_object(2, cur->i, cur->j, 1);
         cur->gen_proc = 0;
     } else
         cur->gen_proc++;
@@ -377,7 +397,7 @@ int main(){
         int tmp = str_to_num(tmp_type);
 
         if (tmp != 0)
-            new_object(tmp, i, j);
+            new_object(tmp, i, j, 0);
         else
             loc(i, j) = 0;
 
@@ -386,26 +406,28 @@ int main(){
     //current number of objects
     int cur_rab, cur_fox;
 
-    clock_t t = clock();
+    double t = omp_get_wtime();
 
     for(gen = 0; gen < N_GEN; gen++){
 
         //print_mat(gen);
+        //cout << gen << "\n";
         cur_rab = rabbits.size();
         cur_fox = foxes.size();
 
+        #pragma omp parallel for num_threads(NTHREADS)
         for(i = 0; i < cur_rab; i++)
             if(rabbits.at(i)->state)
                 prepare_move(rabbits.at(i));
         
         for(i = 0; i < cur_rab; i++)
-            if(rabbits.at(i)->state && rabbits.at(i)->move > -2 )
+            if(rabbits.at(i)->state && rabbits.at(i)->move > -2)
                 move_rabbit(rabbits.at(i));  
 
+        #pragma omp parallel for num_threads(NTHREADS)
         for(i = 0; i < cur_fox; i++)
             if(foxes.at(i)->state)
                 prepare_move(foxes.at(i));
-
         
         for(i = 0; i < cur_fox; i++)
             if(foxes.at(i)->state && foxes.at(i)->move > -2)
@@ -413,10 +435,11 @@ int main(){
         
     }
 
-    t = clock() - t ;
-    printf("time %f\n",((float)t)/CLOCKS_PER_SEC);
+    t = omp_get_wtime() - t ;
+    std::printf("time %.3f\n",t);
     //print_mat(gen);
     //print_final();
+
 
     return 0;
 }
