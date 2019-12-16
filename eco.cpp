@@ -423,7 +423,7 @@ int main(){
     t = clock() - t ;
     printf("time %.3f\n",((float)t)/CLOCKS_PER_SEC);
     //print_mat(gen);
-    //print_final();
+    print_final();
 
     return 0;
 }

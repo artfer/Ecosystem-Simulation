@@ -436,9 +436,9 @@ int main(){
     }
 
     t = omp_get_wtime() - t ;
-    std::printf("time %.3f\n",t);
+    //std::printf("time %.3f\n",t);
     //print_mat(gen);
-    //print_final();
+    print_final();
 
 
     return 0;
